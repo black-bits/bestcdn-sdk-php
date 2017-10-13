@@ -1,0 +1,46 @@
+{
+    "name": "black-bits/bestcdn-sdk-php",
+    "description": "PHP SDK for the bestcdn service",
+    "license": "MIT",
+    "homepage": "https://github.com/black-bits/bestcdn-sdk-php",
+    "support": {
+        "issues": "https://github.com/black-bits/bestcdn-sdk-php/issues",
+        "source": "https://github.com/black-bits/bestcdn-sdk-php"
+    },
+    "authors": [
+        {
+            "name": "Oliver Heck",
+            "email": "mail@oliverheck.de"
+        },
+        {
+            "name": "Andreas Przywara",
+            "email": "andreas.przywara@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.0.0",
+        "illuminate/support": "^5.5",
+        "guzzlehttp/guzzle": "^6.3",
+        "illuminate/contracts": "^5.5"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~6.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "BlackBits\\BestCdn\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "BlackBits\\BestCdn\\BestCdnServiceProvider"
+            ],
+            "aliases": {
+                "BestCdn": "BlackBits\\BestCdn\\BestCdnFacade"
+            }
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
