@@ -24,7 +24,7 @@ class BestCdnServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton('BestCdn', function ($app) {
-            return new BestCdnClient(config('bestcdn-sdk'));
+            return new BestCdnClient(config('bestcdn-sdk') ?: []);
         });
 
     }

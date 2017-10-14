@@ -111,7 +111,7 @@ class BestCdnClient
     }
 
     /**
-     * Create and send an guzzle request
+     * Create and send a guzzle request
      *
      * @param $method string
      * @param $uri string|UriInterface
