@@ -21,16 +21,26 @@ class BestCdnServiceProvider extends ServiceProvider
         ]);
     }
 
+    /**
+     * Register the service provider.
+     *
+     * @return void
+     */
     public function register()
     {
-        $this->app->singleton('BestCdn', function ($app) {
-            return new BestCdnClient(config('bestcdn-sdk') ?: []);
+        $this->app->bind(BestCdn::class, function ($app) {
+            return new BestCdn($app['config']['bestcdn-sdk']);
         });
 
     }
 
+    /**
+     * Get the services provided by the provider.
+     *
+     * @return array
+     */
     public function provides()
     {
-        return ['BestCdn'];
+        return [BestCdn::class];
     }
 }

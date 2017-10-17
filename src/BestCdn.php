@@ -11,7 +11,7 @@ use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Exception\ServerException;
 
-class BestCdnClient
+class BestCdn
 {
     /**
      * @var array

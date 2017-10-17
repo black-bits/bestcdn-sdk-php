@@ -17,7 +17,7 @@ return [
                 "secret" => env("BESTCDN_SECRET", "YourProjectSecret"),
             ],
             "defaultRequestOptions" => [
-                "base_uri" => env("BESTCDN_ENDPOINT", "https://management.bestcdn.io/"),
+                "base_uri" => env("BESTCDN_BASE_URI", "https://management.bestcdn.io/"),
                 "verify"   => env("BESTCDN_VERIFY_SSL", true),
             ],
         ],
