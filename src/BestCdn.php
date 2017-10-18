@@ -224,4 +224,45 @@ class BestCdn
 
         return $response;
     }
+
+    /**
+     * Stores a file on the CDN via URI
+     *
+     * @param $filename
+     * @param $uri
+     *
+     * @return BestCdnResult
+     * @throws BestCdnException
+     */
+    public function putFileByUri($filename, $uri)
+    {
+        // TODO: refactor checks
+        $errors = [];
+        if (empty($filename)) {
+            $errors['filename'] = "filename missing";
+        }
+        if (empty($uri)) {
+            $errors['filename'] = "filename missing";
+        }
+
+        if ($errors) {
+            throw new BestCdnException("Invalid parameters for putFilesByUri()", 500, ['errors' => $errors]);
+        }
+
+        $options = [
+            'headers' => [
+                "Content-Type" => "application/json"
+            ],
+            'body' => json_encode([
+                "filename" => $filename,
+                "uri"      => $uri
+            ]),
+        ];
+
+        $uri  = "/api/file/store-uri";
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
 }
