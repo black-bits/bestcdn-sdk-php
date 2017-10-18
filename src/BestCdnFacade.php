@@ -9,6 +9,6 @@ class BestCdnFacade extends Facade
 {
     protected static function getFacadeAccessor()
     {
-        return 'BestCdn';
+        return BestCdn::class;
     }
 }
