@@ -29,7 +29,7 @@ class BestCdnServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->bind(BestCdn::class, function ($app) {
-            return new BestCdn($app['config']['bestcdn-sdk']);
+            return new BestCdn(config('bestcdn-sdk', []));
         });
 
     }
