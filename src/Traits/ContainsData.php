@@ -139,7 +139,7 @@ trait ContainsData
      */
     public function data()
     {
-        return isset($this->toArray()['data']) ? $this->toArray()['data'] : [];
+        return isset($this->content['data']) ? $this->content['data'] : [];
     }
 
 }
