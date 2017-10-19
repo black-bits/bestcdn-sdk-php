@@ -29,7 +29,10 @@
     "autoload": {
         "psr-4": {
             "BlackBits\\BestCdn\\": "src/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "extra": {
         "laravel": {

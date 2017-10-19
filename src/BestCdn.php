@@ -35,7 +35,6 @@ class BestCdn
      */
     public function __construct(array $config = [])
     {
-
         $this->config = $config;
         $this->validateConfig();
         $this->connection = empty($config['defaultConnection']) ?: "default";
@@ -206,6 +205,8 @@ class BestCdn
      */
     public function putFile($key, $file)
     {
+        $key = self::sanitizeFilename($key);
+
         $fileHandle = is_resource($file) ? $file : fopen($file, 'r');
         $options    = [
             'headers' => [
@@ -227,22 +228,23 @@ class BestCdn
 
     /**
      * Stores a file on the CDN via URI
-     *
-     * @param $filename
-     * @param $uri
+     * 
+     * @param string $key
+     * @param string $uri
      *
      * @return BestCdnResult
      * @throws BestCdnException
      */
-    public function putFileByUri($filename, $uri)
+    public function putFileByUri(string $key, string $uri)
     {
+        $key = self::sanitizeFilename($key);
         // TODO: refactor checks
         $errors = [];
-        if (empty($filename)) {
+        if (empty($key)) {
             $errors['filename'] = "filename missing";
         }
         if (empty($uri)) {
-            $errors['filename'] = "filename missing";
+            $errors['uri'] = "uri missing";
         }
 
         if ($errors) {
@@ -254,7 +256,7 @@ class BestCdn
                 "Content-Type" => "application/json"
             ],
             'body' => json_encode([
-                "filename" => $filename,
+                "filename" => $key,
                 "uri"      => $uri
             ]),
         ];
@@ -264,5 +266,36 @@ class BestCdn
         $response = $this->request('POST', $uri, $options);
 
         return $response;
+    }
+
+    /*
+     * Static convenience methods
+     */
+
+    /**
+     * Sanitizes a filename to be compliant with bestcdn.io expectations
+     *
+     * @param string $str
+     *
+     * @return string
+     */
+    public static function sanitizeFilename(string $str)
+    {
+        $str = strtolower($str);
+        $str = str_replace(" ", "_", $str);
+        $str = preg_replace('/[^A-Za-z0-9_\-.\/]/', "", $str);
+        return trim($str, "/");
+    }
+
+    /**
+     * Checks if a file is 100% compliant with bestcdn.io's expectations
+     *
+     * @param string $str
+     *
+     * @return bool
+     */
+    public static function isValidFilename(string $str)
+    {
+        return $str === self::sanitizeFilename($str);
     }
 }
