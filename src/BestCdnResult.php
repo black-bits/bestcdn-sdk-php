@@ -61,6 +61,9 @@ class BestCdnResult implements ResultContract
             case "GuzzleHttp\Psr7\Response":
                 return new self(new BestCdnResponse($response));
                 break;
+            case "BlackBits\BestCdn\Testing\TestResponse":
+                return new self($response);
+                break;
             default:
                 throw new BestCdnException("Unknown response class: " . get_class($response), 500, ['response' => $response]);
         }

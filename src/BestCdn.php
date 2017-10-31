@@ -4,6 +4,9 @@ namespace BlackBits\BestCdn;
 
 use BlackBits\BestCdn\Exception\BestCdnException;
 
+use BlackBits\BestCdn\Testing\MockClient;
+use BlackBits\BestCdn\Traits\BestCdnHelpers;
+use BlackBits\BestCdn\Traits\RunsChecks;
 use Psr\Http\Message\UriInterface;
 
 use GuzzleHttp\Client;
@@ -13,10 +16,7 @@ use GuzzleHttp\Exception\ServerException;
 
 class BestCdn
 {
-    /**
-     * @var array
-     */
-    protected $config = [];
+    use BestCdnHelpers, RunsChecks;
 
     /**
      * @var Client|null
@@ -36,18 +36,21 @@ class BestCdn
     public function __construct(array $config = [])
     {
         $this->config = $config;
-        $this->validateConfig();
         $this->connection = empty($config['defaultConnection']) ?: "default";
     }
 
     /**
      * Ensures that a client and returns it
      *
-     * @return Client
+     * @return Client|MockClient
      */
     protected function client()
     {
-        return $this->httpClient ?: new Client($this->config['connections']['default']['defaultRequestOptions'] ?: []);
+        $this->validateConfig();
+        if ($this->config['defaultConnection'] == "mock-connection") {
+            return $this->httpClient ?: new MockClient();
+        }
+        return $this->httpClient ?: new Client($this->config['connections']['default']['defaultRequestOptions']);
     }
 
     /**
@@ -59,54 +62,6 @@ class BestCdn
     {
         // TODO: refactor to use JWT later?
         return "Bearer " . base64_encode(implode(":", $this->config['connections']['default']['credentials']));
-    }
-
-
-    /**
-     * @throws BestCdnException
-     */
-    protected function validateConfig()
-    {
-        if (empty($this->config['connections'])) {
-            throw new BestCdnException("Invalid configuration", 500, ['errors' => ['missing_field' => 'connections']]);
-        }
-
-        foreach ($this->config['connections'] as $connection => $values) {
-            $this->validateConnection($connection);
-        }
-    }
-
-
-    /**
-     * Checks if a connection exists and is properly configured
-     *
-     * @param string $connection
-     *
-     * @throws BestCdnException
-     */
-    protected function validateConnection(string $connection)
-    {
-        if (empty($this->config['connections'][$connection])) {
-            throw new BestCdnException("Connection not found", 500, ['connection' => $connection]);
-        }
-
-        $errors = [];
-        $config = $this->config['connections'][$connection];
-        if (empty($config['credentials']['key'])) {
-            $errors['credentials']['key'] = "'credentials.key' config entry missing for '{$connection}' connection";
-        }
-
-        if (empty($config['credentials']['secret'])) {
-            $errors['credentials']['secret'] = "'credentials.secret' config entry missing for '{$connection}' connection";
-        }
-
-        if (empty($config['defaultRequestOptions']['base_uri'])) {
-            $errors['defaultRequestOptions']['base_uri'] = "'defaultRequestOptions.base_uri' config entry missing for '{$connection}' connection";
-        }
-
-        if ($errors) {
-            throw new BestCdnException("Invalid configuration", 500, ['errors' => $errors]);
-        }
     }
 
     /**
@@ -195,26 +150,33 @@ class BestCdn
         return $this;
     }
 
+    /*
+     * Endpoints
+     */
+
     /**
-     * Stores a file on the CDN
-     *
-     * @param string          $key      Desired file name/path
-     * @param string|resource $file     The file handle or path
+     * @param string $key
+     * @param string $file
      *
      * @return BestCdnResult
      */
-    public function putFile($key, $file)
+    public function putFile(string $key, string $file)
     {
         $key = self::sanitizeFilename($key);
 
+        $this
+            ->checkKey($key)
+            ->checkFile($file)
+            ->runChecks();
+
         $fileHandle = is_resource($file) ? $file : fopen($file, 'r');
-        $options    = [
-            'headers' => [
-                'filename' => $key
+        $options = [
+            'multipart' => [
+                'file_key' => $key,
+                'file'     => $fileHandle,
             ],
-            'body'    => $fileHandle,
         ];
-        $uri        = "/api/file/store";
+        $uri = "/api/file/store-bin";
 
         // do the request as post
         $response = $this->request('POST', $uri, $options);
@@ -227,38 +189,25 @@ class BestCdn
     }
 
     /**
-     * Stores a file on the CDN via URI
-     * 
      * @param string $key
      * @param string $uri
      *
      * @return BestCdnResult
-     * @throws BestCdnException
      */
     public function putFileByUri(string $key, string $uri)
     {
         $key = self::sanitizeFilename($key);
-        // TODO: refactor checks
-        $errors = [];
-        if (empty($key)) {
-            $errors['filename'] = "filename missing";
-        }
-        if (empty($uri)) {
-            $errors['uri'] = "uri missing";
-        }
 
-        if ($errors) {
-            throw new BestCdnException("Invalid parameters for putFilesByUri()", 500, ['errors' => $errors]);
-        }
+        $this
+            ->checkKey($key)
+            ->checkUri($uri)
+            ->runChecks();
 
         $options = [
-            'headers' => [
-                "Content-Type" => "application/json"
+            'json' => [
+                "file_key" => $key,
+                "uri"      => $uri,
             ],
-            'body' => json_encode([
-                "filename" => $key,
-                "uri"      => $uri
-            ]),
         ];
 
         $uri  = "/api/file/store-uri";
@@ -268,34 +217,310 @@ class BestCdn
         return $response;
     }
 
-    /*
-     * Static convenience methods
-     */
-
     /**
-     * Sanitizes a filename to be compliant with bestcdn.io expectations
+     * @param string $key
      *
-     * @param string $str
-     *
-     * @return string
+     * @return BestCdnResult
      */
-    public static function sanitizeFilename(string $str)
+    public function getFileInfo(string $key)
     {
-        $str = strtolower($str);
-        $str = str_replace(" ", "_", $str);
-        $str = preg_replace('/[^A-Za-z0-9_\-.\/]/', "", $str);
-        return trim($str, "/");
+        $this
+            ->checkKey($key)
+            ->runChecks();
+
+        $options = [
+            'json' => [
+                "file_key" => $key,
+            ],
+        ];
+
+        $uri  = "/api/file/info";
+        // do the request as get
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
     }
 
     /**
-     * Checks if a file is 100% compliant with bestcdn.io's expectations
+     * @param string $key
      *
-     * @param string $str
-     *
-     * @return bool
+     * @return BestCdnResult
      */
-    public static function isValidFilename(string $str)
+    public function deleteFile(string $key)
     {
-        return $str === self::sanitizeFilename($str);
+        $this
+            ->checkKey($key)
+            ->runChecks();
+
+        $options = [
+            'json' => [
+                "file_key" => $key,
+            ],
+        ];
+
+        $uri  = "/api/file/delete";
+        // do the request as get
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
     }
+
+    /**
+     * @param string $key
+     * @param string $file
+     *
+     * @return BestCdnResult
+     */
+    public function updateFile(string $key, string $file)
+    {
+        $key = self::sanitizeFilename($key);
+
+        $this
+            ->checkKey($key)
+            ->checkFile($file)
+            ->runChecks();
+
+        $fileHandle = is_resource($file) ? $file : fopen($file, 'r');
+        $options = [
+            'multipart' => [
+                'file_key' => $key,
+                'file'     => $fileHandle,
+            ],
+        ];
+
+        $uri = "/api/file/update-bin";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        if (is_resource($fileHandle)){
+            fclose($fileHandle);
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param string $key
+     * @param string $uri
+     *
+     * @return BestCdnResult
+     */
+    public function updateFileByUri(string $key, string $uri)
+    {
+        $key = self::sanitizeFilename($key);
+
+        $this
+            ->checkKey($key)
+            ->checkUri($uri)
+            ->runChecks();
+
+        $options    = [
+            'json' => [
+                "file_key" => $key,
+                "uri"      => $uri,
+            ],
+        ];
+
+        $uri = "/api/file/update-uri";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param string $oldKey
+     * @param string $newKey
+     *
+     * @return BestCdnResult
+     */
+    public function renameFile(string $oldKey, string $newKey)
+    {
+        $oldKey = self::sanitizeFilename($oldKey);
+        $newKey = self::sanitizeFilename($newKey);
+        $this
+            ->checkKey($oldKey)
+            ->checkKey($newKey)
+            ->runChecks();
+
+        $options = [
+            'json' => [
+                "file_key"     => $oldKey,
+                "file_key_new" => $newKey,
+            ],
+        ];
+
+        $uri = "/api/file/rename";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param string $uid
+     * @param array $visibilityOptions
+     *
+     * @return BestCdnResult
+     */
+    public function changeFileVisibility(string $uid, array $visibilityOptions)
+    {
+        $this
+            ->checkUid($uid)
+            ->checkVisibilityOptions($visibilityOptions)
+            ->runChecks();
+
+        $options = [
+            'headers' => [
+                "Content-Type" => "application/json"
+            ],
+            'body' => json_encode($visibilityOptions),
+        ];
+
+        $uri = "/api/file/{$uid}/visibility";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param string $uid
+     * @param array $expirationOptions
+     *
+     * @return BestCdnResult
+     */
+    public function changeFileExpiration(string $uid, array $expirationOptions)
+    {
+        $this
+            ->checkUid($uid)
+            ->checkExpirationOptions($expirationOptions)
+            ->runChecks();
+
+        $options = [
+            'headers' => [
+                "Content-Type" => "application/json"
+            ],
+            'body' => json_encode($expirationOptions),
+        ];
+
+        $uri = "/api/file/{$uid}/expiration";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param string $uid
+     * @param array $cacheOptions
+     *
+     * @return BestCdnResult
+     */
+    public function updateFileCacheSettings(string $uid, array $cacheOptions)
+    {
+        $this
+            ->checkUid($uid)
+            ->checkCacheOptions($cacheOptions)
+            ->runChecks();
+
+        $options = [
+            'headers' => [
+                "Content-Type" => "application/json"
+            ],
+            'body' => json_encode($cacheOptions),
+        ];
+
+        $uri = "/api/file/{$uid}/cache/update";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+
+    /**
+     * @param array $listOptions
+     *
+     * @return BestCdnResult
+     */
+    public function listAll(array $listOptions)
+    {
+        $this
+            ->checkListOptions($listOptions)
+            ->runChecks();
+
+        $options = [
+            'headers' => [
+                "Content-Type" => "application/json"
+            ],
+            'body' => json_encode($listOptions),
+        ];
+
+        $uri = "/api/list/all";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param array $listOptions
+     *
+     * @return BestCdnResult
+     */
+    public function listFiles(array $listOptions)
+    {
+        $this
+            ->checkListOptions($listOptions)
+            ->runChecks();
+
+        $options = [
+            'headers' => [
+                "Content-Type" => "application/json"
+            ],
+            'body' => json_encode($listOptions),
+        ];
+
+        $uri = "/api/list/files";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param array $listOptions
+     *
+     * @return BestCdnResult
+     */
+    public function listDirectories(array $listOptions)
+    {
+        $this
+            ->checkListOptions($listOptions)
+            ->runChecks();
+
+        $options = [
+            'headers' => [
+                "Content-Type" => "application/json"
+            ],
+            'body' => json_encode($listOptions),
+        ];
+
+        $uri = "/api/list/directories";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
 }

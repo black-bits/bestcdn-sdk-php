@@ -142,4 +142,9 @@ trait ContainsData
         return isset($this->content['data']) ? $this->content['data'] : [];
     }
 
+    public function errors()
+    {
+        return isset($this->content['errors']) ? $this->content['errors'] : [];
+    }
+
 }
