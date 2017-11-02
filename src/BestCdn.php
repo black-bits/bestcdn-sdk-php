@@ -172,8 +172,10 @@ class BestCdn
         $fileHandle = is_resource($file) ? $file : fopen($file, 'r');
         $options = [
             'multipart' => [
-                'file_key' => $key,
-                'file'     => $fileHandle,
+                [
+                    'file_key' => $key,
+                    'file'     => $fileHandle,
+                ],
             ],
         ];
         $uri = "/api/file/store-bin";
@@ -283,8 +285,10 @@ class BestCdn
         $fileHandle = is_resource($file) ? $file : fopen($file, 'r');
         $options = [
             'multipart' => [
-                'file_key' => $key,
-                'file'     => $fileHandle,
+                [
+                    'file_key' => $key,
+                    'file'     => $fileHandle,
+                ],
             ],
         ];
 
