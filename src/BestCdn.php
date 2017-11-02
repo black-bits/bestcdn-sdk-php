@@ -173,8 +173,12 @@ class BestCdn
         $options = [
             'multipart' => [
                 [
-                    'file_key' => $key,
-                    'file'     => $fileHandle,
+                    'name'     => "file_key",
+                    'contents' => $key,
+                ],
+                [
+                    'name'     => "file",
+                    'contents' => $fileHandle,
                 ],
             ],
         ];
@@ -286,8 +290,12 @@ class BestCdn
         $options = [
             'multipart' => [
                 [
-                    'file_key' => $key,
-                    'file'     => $fileHandle,
+                    'name'     => "file_key",
+                    'contents' => $key,
+                ],
+                [
+                    'name'     => "file",
+                    'contents' => $fileHandle,
                 ],
             ],
         ];
