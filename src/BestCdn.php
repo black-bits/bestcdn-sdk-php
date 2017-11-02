@@ -156,11 +156,11 @@ class BestCdn
 
     /**
      * @param string $key
-     * @param string $file
+     * @param string|resource $file
      *
      * @return BestCdnResult
      */
-    public function putFile(string $key, string $file)
+    public function putFile(string $key, $file)
     {
         $key = self::sanitizeFilename($key);
 
@@ -267,11 +267,11 @@ class BestCdn
 
     /**
      * @param string $key
-     * @param string $file
+     * @param string|resource $file
      *
      * @return BestCdnResult
      */
-    public function updateFile(string $key, string $file)
+    public function updateFile(string $key, $file)
     {
         $key = self::sanitizeFilename($key);
 
