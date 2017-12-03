@@ -86,7 +86,7 @@ $respose = $cdn->putFile($key, file);
 #### putFile()
 When making a request to store a file on the CDN you need to provide the desired **key** and a **file**.
   
-The **key** represents the sub-path within your project namespace (the public path on the CDN will end in /{project-name}/{key}).
+The **key** represents the sub-path within your project namespace (the public path on the CDN will end in /{project-name}-{customer-name}/{key}).
 
 The **file** can be a php resource (e.g. an fopen() handle) or an absolute path to a file.
 If you provide a resource handle it will be closed on successful upload to the CDN.
@@ -107,7 +107,7 @@ Results in:
 ```
 array(1) {
   ["cdn_link"]=>
-  string(139) "https://master.bestcdn.io/1/scGe6cSwttS64d3fNl34itK6IdephcDWYWWR4fFhdJVJyiRskU2bI2D80FzpO0fY7KBgyvmjZvNCPitE5Dd5fKkOC4s4mBWWY3KZ.md"
+  string(139) "https://staging.master.bestcdn.io/project_1-customer_01/example/image_profile/250x250_10.jpg"
 }
 ```
 This will be extended to a full file object once development enters alpha stage.

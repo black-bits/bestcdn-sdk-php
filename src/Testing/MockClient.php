@@ -18,12 +18,12 @@ class MockClient
         $this->mockResults = [
             "/api/file/store-bin" => [
                 "data" => [
-                    "cdn-link" => "https://bb-cdn-staging.nyc3.digitaloceanspaces.com/1/CizhYodMfsih9v5msn6NNa9zDHEjDC62Z3NzrFXYBYcxTs1dMAWjyJakSLHSgwZaHMDGfQF2hfW9JDjx2QX5tmC5GCGeM2Mgvye1.mp4",
+                    "cdn_link" => "https://staging.master.bestcdn.io/project_1-customer_01/",
                 ],
             ],
             "/api/file/store-uri" => [
                 "data" => [
-                    "cdn-link" => "https://bb-cdn-staging.nyc3.digitaloceanspaces.com/1/CizhYodMfsih9v5msn6NNa9zDHEjDC62Z3NzrFXYBYcxTs1dMAWjyJakSLHSgwZaHMDGfQF2hfW9JDjx2QX5tmC5GCGeM2Mgvye1.mp4",
+                    "cdn_link" => "https://staging.master.bestcdn.io/project_1-customer_01/",
                 ],
             ],
             "/api/file/{$uid}/info" => [],
@@ -41,6 +41,15 @@ class MockClient
 
     public function request($method, $uri = '', array $options = [])
     {
-         return new TestResponse($this->mockResults[$uri]);
+
+        switch ($uri) {
+            case "/api/file/store-bin":
+            case "/api/file/store-uri":
+                $this->mockResults[$uri]["data"]["cdn_link"] .= $options['multipart'][0]['contents'];
+                return new TestResponse($this->mockResults[$uri]);
+            default:
+                return new TestResponse($this->mockResults[$uri]);
+        }
+
     }
 }

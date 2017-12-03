@@ -36,10 +36,28 @@ class BestCdnTest extends TestCase
     public function testThatWeCanUploadAFile()
     {
         $this->assertEquals([
-            "cdn-link" => "https://bb-cdn-staging.nyc3.digitaloceanspaces.com/1/CizhYodMfsih9v5msn6NNa9zDHEjDC62Z3NzrFXYBYcxTs1dMAWjyJakSLHSgwZaHMDGfQF2hfW9JDjx2QX5tmC5GCGeM2Mgvye1.mp4",
+            "cdn_link" => "https://staging.master.bestcdn.io/project_1-customer_01/test",
         ], $this->bestCdn()->putFile("test", __FILE__)->data());
+
         $this->assertEquals([
-            "cdn-link" => "https://bb-cdn-staging.nyc3.digitaloceanspaces.com/1/CizhYodMfsih9v5msn6NNa9zDHEjDC62Z3NzrFXYBYcxTs1dMAWjyJakSLHSgwZaHMDGfQF2hfW9JDjx2QX5tmC5GCGeM2Mgvye1.mp4",
-        ], $this->bestCdn()->putFileByUri("test", "test")->data());
+            "cdn_link" => "https://staging.master.bestcdn.io/project_1-customer_01/dir/test.jpg",
+        ], $this->bestCdn()->putFile("dir/test.jpg", fopen(__FILE__, "r"))->data());
+
+        $this->assertEquals([
+            "cdn_link" => "https://staging.master.bestcdn.io/project_1-customer_01/test.jpg",
+        ], $this->bestCdn()->putFileByUri("test.jpg", "test")->data());
+    }
+
+    public function testThatWeReceiveACdnLink()
+    {
+        $this->assertEquals("https://staging.master.bestcdn.io/project_1-customer_01/dir1/test.jpg",
+            $this->bestCdn()->putFile("dir1/test.jpg", __FILE__)->get("cdn_link"));
+
+        $this->assertEquals("https://staging.master.bestcdn.io/project_1-customer_01/dir2/test.jpg",
+            $this->bestCdn()->putFile("dir2/test.jpg", fopen(__FILE__, "r"))->get("cdn_link"));
+
+        $this->assertEquals("https://staging.master.bestcdn.io/project_1-customer_01/dir3/test.jpg",
+            $this->bestCdn()->putFileByUri("dir3/test.jpg", "test")->get("cdn_link"));
+
     }
 }
