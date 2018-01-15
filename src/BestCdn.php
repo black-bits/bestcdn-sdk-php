@@ -40,9 +40,10 @@ class BestCdn
     }
 
     /**
-     * Ensures that a client and returns it
+     * Ensures that a client is present and returns it
      *
-     * @return Client|MockClient
+     * @return MockClient|Client
+     * @throws BestCdnException
      */
     protected function client()
     {
@@ -98,6 +99,7 @@ class BestCdn
                     [
                         'request'  => $e->getRequest(),
                         'response' => $e->getResponse(),
+                        'body'     => $e->getResponse()->getBody()->getContents(),
                     ],
                     $e
                 );
@@ -142,6 +144,8 @@ class BestCdn
      * @param string $connection
      *
      * @return $this
+     *
+     * @throws BestCdnException
      */
     public function on(string $connection)
     {
@@ -156,9 +160,11 @@ class BestCdn
 
     /**
      * @param string $key
-     * @param string|resource $file
+     * @param $file
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function putFile(string $key, $file)
     {
@@ -199,6 +205,8 @@ class BestCdn
      * @param string $uri
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function putFileByUri(string $key, string $uri)
     {
@@ -227,6 +235,8 @@ class BestCdn
      * @param string $key
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function getFileInfo(string $key)
     {
@@ -251,6 +261,8 @@ class BestCdn
      * @param string $key
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function deleteFile(string $key)
     {
@@ -276,6 +288,8 @@ class BestCdn
      * @param string|resource $file
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function updateFile(string $key, $file)
     {
@@ -314,9 +328,54 @@ class BestCdn
 
     /**
      * @param string $key
+     * @param string|resource $file
+     *
+     * @return BestCdnResult
+     *
+     * @throws BestCdnException
+     */
+    public function updateOrCreateFile(string $key, $file)
+    {
+        $key = self::sanitizeFilename($key);
+
+        $this
+            ->checkKey($key)
+            ->checkFile($file)
+            ->runChecks();
+
+        $fileHandle = is_resource($file) ? $file : fopen($file, 'r');
+        $options = [
+            'multipart' => [
+                [
+                    'name'     => "file_key",
+                    'contents' => $key,
+                ],
+                [
+                    'name'     => "file",
+                    'contents' => $fileHandle,
+                ],
+            ],
+        ];
+
+        $uri = "/api/file/update-or-create-bin";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        if (is_resource($fileHandle)){
+            fclose($fileHandle);
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param string $key
      * @param string $uri
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function updateFileByUri(string $key, string $uri)
     {
@@ -343,10 +402,44 @@ class BestCdn
     }
 
     /**
+     * @param string $key
+     * @param string $uri
+     *
+     * @return BestCdnResult
+     *
+     * @throws BestCdnException
+     */
+    public function updateOrCreateFileByUri(string $key, string $uri)
+    {
+        $key = self::sanitizeFilename($key);
+
+        $this
+            ->checkKey($key)
+            ->checkUri($uri)
+            ->runChecks();
+
+        $options    = [
+            'json' => [
+                "file_key" => $key,
+                "uri"      => $uri,
+            ],
+        ];
+
+        $uri = "/api/file/update-or-create-uri";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
      * @param string $oldKey
      * @param string $newKey
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function renameFile(string $oldKey, string $newKey)
     {
@@ -377,6 +470,8 @@ class BestCdn
      * @param array $visibilityOptions
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function changeFileVisibility(string $uid, array $visibilityOptions)
     {
@@ -405,6 +500,8 @@ class BestCdn
      * @param array $expirationOptions
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function changeFileExpiration(string $uid, array $expirationOptions)
     {
@@ -433,6 +530,8 @@ class BestCdn
      * @param array $cacheOptions
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function updateFileCacheSettings(string $uid, array $cacheOptions)
     {
@@ -461,6 +560,8 @@ class BestCdn
      * @param array $listOptions
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function listAll(array $listOptions)
     {
@@ -487,6 +588,8 @@ class BestCdn
      * @param array $listOptions
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function listFiles(array $listOptions)
     {
@@ -513,6 +616,8 @@ class BestCdn
      * @param array $listOptions
      *
      * @return BestCdnResult
+     *
+     * @throws BestCdnException
      */
     public function listDirectories(array $listOptions)
     {
