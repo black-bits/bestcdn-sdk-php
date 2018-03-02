@@ -32,9 +32,9 @@ class BestCdnException extends \Exception
      */
     function __construct($message = "", $code = 500, array $context = [], \Exception $previous = null)
     {
-        $this->errors    = isset($context['errors'])   ? $context['errors']   : [];
-        $this->request   = isset($context['request'])  ? $context['request']  : null;
-        $this->response  = isset($context['response']) ? $context['response'] : null;
+        $this->errors    = $context['errors']   ?? [];
+        $this->request   = $context['request']  ?? null;
+        $this->response  = $context['response'] ?? null;
 
         parent::__construct($message, $code, $previous);
     }

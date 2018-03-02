@@ -75,7 +75,7 @@ $config = [
     "defaultConnection" => "default", // optional, if you configure multiple connections (multiple projects/testing/production)
 ];
 
-$cdn     = new BestCdnClient($config);
+$cdn     = new BestCdn($config);
 $key     = "myPath/myFileName.ext"; // desired path on cdn
 $file    = __DIR__ . "/file.ext";   // local absolute path or php resource handle
 $respose = $cdn->putFile($key, file);
@@ -124,7 +124,7 @@ For error handling we provide a standardised exception as well as default error 
 You handle common errors like this:
 
 ```php
-$cdn = new BestCdnClient($config);
+$cdn = new BestCdn($config);
 
 $key  = "myPath/myFileName.md";
 $file = __DIR__ . "/README.md";

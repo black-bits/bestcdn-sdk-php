@@ -13,7 +13,7 @@ trait HandlesJson
      * @param string $json
      *
      * @return mixed
-     * @throws \Exception
+     * @throws BestCdnException
      */
     public function parseJson(string $json)
     {

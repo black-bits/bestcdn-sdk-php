@@ -26,9 +26,13 @@ class BestCdnResponse implements ResponseContract
         $this->response = $response;
     }
 
+    /**
+     * @return array
+     * @throws \BlackBits\BestCdn\Exception\BestCdnException
+     */
     public function getData(): array
     {
-        return $this->parseJson($this->response->getBody()->getContents());
+        return $this->parseJson($this->response->getBody()->getContents() ?? "[]");
     }
 
     public function getResponse(): ResponseInterface
@@ -44,5 +48,10 @@ class BestCdnResponse implements ResponseContract
     public function getStatusCode(): int
     {
         return $this->getResponse()->getStatusCode();
+    }
+
+    public function getHeaders(): array
+    {
+        return $this->getResponse()->getHeaders();
     }
 }

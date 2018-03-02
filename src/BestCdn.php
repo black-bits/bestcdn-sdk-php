@@ -18,6 +18,11 @@ class BestCdn
 {
     use BestCdnHelpers, RunsChecks;
 
+    /*
+     * WARNING: circumventing this limit manually may result in time-outs and/or max post size errors
+     */
+    const UPLOAD_LIMIT = 5 * 1024 * 1024; // 5mb
+
     /**
      * @var Client|null
      */
@@ -71,18 +76,22 @@ class BestCdn
      * @param $method string
      * @param $uri string|UriInterface
      * @param array $options
+     * @param bool $auth
      *
      * @return BestCdnResult
      *
      * @throws BestCdnException
      */
-    protected function request(string $method, $uri, array $options = [])
+    protected function request(string $method, $uri, array $options = [], $auth = true)
     {
         $options['headers'] = array_merge([
             'User-Agent'    => 'BlackBits-BestCDN-SDK-PHP/1.0',
             'Accept'        => 'application/json',
-            'Authorization' => $this->getAuthToken(),
         ], empty($options['headers']) ? [] : $options['headers']);
+
+        if ($auth) {
+            $options['headers']['Authorization'] = $this->getAuthToken();
+        }
 
         try {
             $response = $this->client()->request($method, $uri, $options);
@@ -139,6 +148,240 @@ class BestCdn
 
 
     /**
+     * @param string $key
+     * @param string $type
+     * @return mixed
+     * @throws BestCdnException
+     * @throws \Throwable
+     */
+    protected function getPreSignedURI(string $key, $type = "store")
+    {
+        $uri = "/api/file/{$type}-s3/get-presigned-url";
+
+        $options = [
+            'json' => [
+                "file_key" => $key,
+            ],
+        ];
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        throw_if($response->hasError(), new BestCdnException("Cannot get presigned_url"));
+
+        return $response->get("presigned_url");
+    }
+
+    /**
+     * @param string $uri
+     * @param $resource
+     * @param $md5
+     * @throws BestCdnException
+     */
+    protected function uploadToS3(string $uri, $resource, $md5)
+    {
+        $options = [
+            'body' => $resource
+        ];
+
+        // do the upload as put
+        $response = $this->client()->request('PUT', $uri, $options);
+
+        // fix the etag header
+        $etag = trim($response->getHeader("ETag")[0] ?? "","\"");
+
+        if ($response->getStatusCode() != 200 || $etag != $md5) {
+            throw new BestCdnException("Upload to S3 failed", 500, [
+                "errors" => [
+                    "statusCode" => $response->getStatusCode(),
+                    "md5"        => $md5,
+                    "ETag"       => $etag,
+                ],
+                "response" => $response,
+            ]);
+        }
+
+        if (is_resource($resource)){
+            fclose($resource);
+        }
+    }
+
+    /**
+     * @param string $key
+     * @param string $uri
+     * @param resource $resource
+     * @param string $md5
+     * @return BestCdnResult
+     * @throws BestCdnException
+     */
+    protected function putViaS3(string $key, string $uri, $resource, $md5)
+    {
+        $this->uploadToS3($uri, $resource, $md5);
+
+        // confirm the finished upload with the CDN
+        $uri  = "/api/file/store-s3";
+        $options = [
+            'json' => [
+                "file_key" => $key,
+            ],
+        ];
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param string $key
+     * @param resource $resource
+     * @return BestCdnResult
+     * @throws BestCdnException
+     */
+    protected function putBinary(string $key, resource $resource)
+    {
+        $options = [
+            'multipart' => [
+                [
+                    'name'     => "file_key",
+                    'contents' => $key,
+                ],
+                [
+                    'name'     => "file",
+                    'contents' => $resource,
+                ],
+            ],
+        ];
+        $uri = "/api/file/store-bin";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        if (is_resource($resource)){
+            fclose($resource);
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param string $key
+     * @param string $uri
+     * @param $resource
+     * @param $md5
+     * @return BestCdnResult
+     * @throws BestCdnException
+     */
+    protected function updateViaS3(string $key, string $uri, $resource, $md5)
+    {
+        $this->uploadToS3($uri, $resource, $md5);
+
+        // confirm the finished upload with the CDN
+        $uri  = "/api/file/update-s3";
+        $options = [
+            'json' => [
+                "file_key" => $key,
+            ],
+        ];
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param string $key
+     * @param resource $resource
+     * @return BestCdnResult
+     * @throws BestCdnException
+     */
+    protected function updateBinary(string $key, resource $resource)
+    {
+        $options = [
+            'multipart' => [
+                [
+                    'name'     => "file_key",
+                    'contents' => $key,
+                ],
+                [
+                    'name'     => "file",
+                    'contents' => $resource,
+                ],
+            ],
+        ];
+        $uri = "/api/file/update-bin";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        if (is_resource($resource)){
+            fclose($resource);
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param string $key
+     * @param string $uri
+     * @param $resource
+     * @param $md5
+     * @return BestCdnResult
+     * @throws BestCdnException
+     */
+    protected function updateOrCreateViaS3(string $key, string $uri, $resource, $md5)
+    {
+        $this->uploadToS3($uri, $resource, $md5);
+
+        // confirm the finished upload with the CDN
+        $uri  = "/api/file/update-or-create-s3";
+        $options = [
+            'json' => [
+                "file_key" => $key,
+            ],
+        ];
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param string $key
+     * @param resource $resource
+     * @return BestCdnResult
+     * @throws BestCdnException
+     */
+    protected function updateOrCreateBinary(string $key, resource $resource)
+    {
+        $options = [
+            'multipart' => [
+                [
+                    'name'     => "file_key",
+                    'contents' => $key,
+                ],
+                [
+                    'name'     => "file",
+                    'contents' => $resource,
+                ],
+            ],
+        ];
+        $uri = "/api/file/update-or-create-bin";
+
+        // do the request as post
+        $response = $this->request('POST', $uri, $options);
+
+        if (is_resource($resource)){
+            fclose($resource);
+        }
+
+        return $response;
+    }
+
+
+    /**
      * Run a request on a specified connection
      *
      * @param string $connection
@@ -160,13 +403,12 @@ class BestCdn
 
     /**
      * @param string $key
-     * @param $file
-     *
+     * @param string $file
      * @return BestCdnResult
-     *
      * @throws BestCdnException
+     * @throws \Throwable
      */
-    public function putFile(string $key, $file)
+    public function putFile(string $key, string $file)
     {
         $key = self::sanitizeFilename($key);
 
@@ -175,29 +417,15 @@ class BestCdn
             ->checkFile($file)
             ->runChecks();
 
-        $fileHandle = is_resource($file) ? $file : fopen($file, 'r');
-        $options = [
-            'multipart' => [
-                [
-                    'name'     => "file_key",
-                    'contents' => $key,
-                ],
-                [
-                    'name'     => "file",
-                    'contents' => $fileHandle,
-                ],
-            ],
-        ];
-        $uri = "/api/file/store-bin";
+        $fileHandle = fopen($file, 'r');
+        $fileStats  = fstat($fileHandle);
 
-        // do the request as post
-        $response = $this->request('POST', $uri, $options);
-
-        if (is_resource($fileHandle)){
-            fclose($fileHandle);
+        // upload files bigger than our upload limit to S3 otherwise upload them directly as binary
+        if ($fileStats['size'] > self::UPLOAD_LIMIT) {
+            return $this->putViaS3($key, $this->getPreSignedURI($key, "store"), $fileHandle, md5_file($file));
+        } else {
+            return $this->putViaS3($key, $this->getPreSignedURI($key, "store"), $fileHandle, md5_file($file)); // TODO: change this to binary upload later for performance optimization
         }
-
-        return $response;
     }
 
     /**
@@ -285,13 +513,12 @@ class BestCdn
 
     /**
      * @param string $key
-     * @param string|resource $file
-     *
+     * @param string $file
      * @return BestCdnResult
-     *
      * @throws BestCdnException
+     * @throws \Throwable
      */
-    public function updateFile(string $key, $file)
+    public function updateFile(string $key, string $file)
     {
         $key = self::sanitizeFilename($key);
 
@@ -300,41 +527,25 @@ class BestCdn
             ->checkFile($file)
             ->runChecks();
 
-        $fileHandle = is_resource($file) ? $file : fopen($file, 'r');
-        $options = [
-            'multipart' => [
-                [
-                    'name'     => "file_key",
-                    'contents' => $key,
-                ],
-                [
-                    'name'     => "file",
-                    'contents' => $fileHandle,
-                ],
-            ],
-        ];
+        $fileHandle = fopen($file, 'r');
+        $fileStats  = fstat($fileHandle);
 
-        $uri = "/api/file/update-bin";
-
-        // do the request as post
-        $response = $this->request('POST', $uri, $options);
-
-        if (is_resource($fileHandle)){
-            fclose($fileHandle);
+        // upload files bigger than our upload limit to S3 otherwise upload them directly as binary
+        if ($fileStats['size'] > self::UPLOAD_LIMIT) {
+            return $this->updateViaS3($key, $this->getPreSignedURI($key, "update-or-create"), $fileHandle, md5_file($file));
+        } else {
+            return $this->updateViaS3($key, $this->getPreSignedURI($key, "update-or-create"), $fileHandle, md5_file($file)); // TODO: change this to binary later for performance optimization
         }
-
-        return $response;
     }
 
     /**
      * @param string $key
-     * @param string|resource $file
-     *
+     * @param string $file
      * @return BestCdnResult
-     *
      * @throws BestCdnException
+     * @throws \Throwable
      */
-    public function updateOrCreateFile(string $key, $file)
+    public function updateOrCreateFile(string $key, string $file)
     {
         $key = self::sanitizeFilename($key);
 
@@ -343,30 +554,15 @@ class BestCdn
             ->checkFile($file)
             ->runChecks();
 
-        $fileHandle = is_resource($file) ? $file : fopen($file, 'r');
-        $options = [
-            'multipart' => [
-                [
-                    'name'     => "file_key",
-                    'contents' => $key,
-                ],
-                [
-                    'name'     => "file",
-                    'contents' => $fileHandle,
-                ],
-            ],
-        ];
+        $fileHandle = fopen($file, 'r');
+        $fileStats  = fstat($fileHandle);
 
-        $uri = "/api/file/update-or-create-bin";
-
-        // do the request as post
-        $response = $this->request('POST', $uri, $options);
-
-        if (is_resource($fileHandle)){
-            fclose($fileHandle);
+        // upload files bigger than our upload limit to S3 otherwise upload them directly as binary
+        if ($fileStats['size'] > self::UPLOAD_LIMIT) {
+            return $this->updateOrCreateViaS3($key, $this->getPreSignedURI($key, "update-or-create"), $fileHandle, md5_file($file));
+        } else {
+            return $this->updateOrCreateViaS3($key, $this->getPreSignedURI($key, "update-or-create"), $fileHandle, md5_file($file)); // TODO: change this to binary later for performance optimization
         }
-
-        return $response;
     }
 
     /**

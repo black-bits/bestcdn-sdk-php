@@ -118,7 +118,7 @@ class BestCdnResult implements ResultContract
      */
     public function statusCode()
     {
-        return $this->statusCode ?: 0;
+        return $this->statusCode ?? 0;
     }
 
     /**
@@ -126,7 +126,7 @@ class BestCdnResult implements ResultContract
      */
     public function message()
     {
-        return $this->message ? $this->message : "Message empty";
+        return $this->message ?? "Message empty";
     }
 
     /**
