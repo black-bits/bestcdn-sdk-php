@@ -28,8 +28,8 @@ Using Laravel you can use the SDK in multiple ways.
 
 ```php
 $key     = "myPath/myFileName.ext";      // desired path on cdn
-$file    = __DIR__ . "/file.ext";        // local absolute path or php resource handle
-$respose = BestCdn::putFile($key, file); 
+$file    = __DIR__ . "/file.ext";        // local absolute path
+$respose = BestCdn::putFile($key, $file); 
 ```
 
 
@@ -46,8 +46,8 @@ class FileController extends Controller
     {
         // ...
         $key     = "myPath/myFileName.ext"; // desired path on cdn
-        $file    = __DIR__ . "/file.ext";   // local absolute path or php resource handle
-        $respose = $cdn->putFile($key, file); 
+        $file    = __DIR__ . "/file.ext";   // local absolute path
+        $respose = $cdn->putFile($key, $file); 
         // ...
     }
 }
@@ -77,8 +77,8 @@ $config = [
 
 $cdn     = new BestCdn($config);
 $key     = "myPath/myFileName.ext"; // desired path on cdn
-$file    = __DIR__ . "/file.ext";   // local absolute path or php resource handle
-$respose = $cdn->putFile($key, file);
+$file    = __DIR__ . "/file.ext";   // local absolute path
+$respose = $cdn->putFile($key, $file);
 ```
 
 ### Making a request
@@ -88,13 +88,26 @@ When making a request to store a file on the CDN you need to provide the desired
   
 The **key** represents the sub-path within your project namespace (the public path on the CDN will end in /{project-name}-{customer-name}/{key}).
 
-The **file** can be a php resource (e.g. an fopen() handle) or an absolute path to a file.
-If you provide a resource handle it will be closed on successful upload to the CDN.
+The **file** should be an absolute path to a file.
 
 ```php
 $key     = "myPath/myFileName.md"; // desired path on cdn
-$file    = __DIR__ . "/README.md"; // local absolute path or php resource handle
-$respose = $cdn->putFile($key, file);
+$file    = __DIR__ . "/README.md"; // local absolute path
+$respose = $cdn->putFile($key, $file);
+```
+
+#### putFileByUri()
+When making a request to store a file on the CDN via URI you need to provide the desired **key** and a **uri**.
+The CDN will download the file from the given URI.
+  
+The **key** represents the sub-path within your project namespace (the public path on the CDN will end in /{project-name}-{customer-name}/{key}).
+
+The **uri** should be a valid, publicly accessible uri of a file.
+
+```php
+$key     = "myPath/myFileName.jpeg";                                           // desired path on cdn
+$uri     = "https://static.pexels.com/photos/460797/pexels-photo-460797.jpeg"; // public uri
+$respose = $cdn->putFileByUri($key, $uri);
 ```
 
 ### Handling Results
