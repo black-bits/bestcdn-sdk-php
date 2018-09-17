@@ -33,8 +33,6 @@ $respose = BestCdn::putFile($key, $file);
 ```
 
 
-
-
 #### Using Dependency Injection
 
 For example inside a Controller
@@ -123,7 +121,6 @@ array(1) {
   string(139) "https://staging.master.bestcdn.io/project_1-customer_01/example/image_profile/250x250_10.jpg"
 }
 ```
-This will be extended to a full file object once development enters alpha stage.
 
 To access file properties (like the cdn_link) you can use convenience methods like this:
 ```php
